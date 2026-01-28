@@ -1,0 +1,200 @@
+blueprint:
+  name: IKEA STYRBAR (E2001/E2002) - Simple via Z2M
+  description: >
+    Simpel blueprint til IKEA STYRBAR (E2001/E2002) via Zigbee2MQTT.
+    Understøtter klik + hold/release for top/bund samt venstre/højre pile.
+    OBS: brightness_stop kan ikke skelne mellem top/bund (Z2M sender samme action).
+  domain: automation
+  source_url: https://github.com/math7935/Home-Assistant-Blueprints/blueprints/automation/ikea_styrbar_e2001_e2002_zigbee2mqtt.yaml
+
+  input:
+    remote:
+      name: IKEA STYRBAR remote control (Z2M device)
+      selector:
+        device:
+          integration: mqtt
+          manufacturer: IKEA
+          model: "STYRBAR remote control"
+
+    # ---------------------------------------------------------------
+    # KLIK
+    # ---------------------------------------------------------------
+    top_click:
+      name: "Top (stor lys) – Klik (on)"
+      default: []
+      selector: { action: {} }
+
+    bottom_click:
+      name: "Bund (lille lys) – Klik (off)"
+      default: []
+      selector: { action: {} }
+
+    left_click:
+      name: "Venstre pil – Klik"
+      default: []
+      selector: { action: {} }
+
+    right_click:
+      name: "Højre pil – Klik"
+      default: []
+      selector: { action: {} }
+
+    # ---------------------------------------------------------------
+    # HOLD
+    # ---------------------------------------------------------------
+    top_hold:
+      name: "Top (stor lys) – Hold (brightness_move_up)"
+      default: []
+      selector: { action: {} }
+
+    bottom_hold:
+      name: "Bund (lille lys) – Hold (brightness_move_down)"
+      default: []
+      selector: { action: {} }
+
+    left_hold:
+      name: "Venstre pil – Hold"
+      default: []
+      selector: { action: {} }
+
+    right_hold:
+      name: "Højre pil – Hold"
+      default: []
+      selector: { action: {} }
+
+    # ---------------------------------------------------------------
+    # RELEASE
+    # ---------------------------------------------------------------
+    brightness_release:
+      name: "Top/Bund – Slip (brightness_stop)"
+      default: []
+      selector: { action: {} }
+
+    left_release:
+      name: "Venstre pil – Slip"
+      default: []
+      selector: { action: {} }
+
+    right_release:
+      name: "Højre pil – Slip"
+      default: []
+      selector: { action: {} }
+
+mode: single
+max_exceeded: silent
+
+trigger:
+  # --- CLICKS ---
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: on
+    id: top_click
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: off
+    id: bottom_click
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: arrow_left_click
+    id: left_click
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: arrow_right_click
+    id: right_click
+
+  # --- HOLD ---
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: brightness_move_up
+    id: top_hold
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: brightness_move_down
+    id: bottom_hold
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: arrow_left_hold
+    id: left_hold
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: arrow_right_hold
+    id: right_hold
+
+  # --- RELEASE ---
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: brightness_stop
+    id: brightness_release
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: arrow_left_release
+    id: left_release
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: arrow_right_release
+    id: right_release
+
+action:
+  - choose:
+      - conditions: "{{ trigger.id == 'top_click' }}"
+        sequence: !input top_click
+
+      - conditions: "{{ trigger.id == 'bottom_click' }}"
+        sequence: !input bottom_click
+
+      - conditions: "{{ trigger.id == 'left_click' }}"
+        sequence: !input left_click
+
+      - conditions: "{{ trigger.id == 'right_click' }}"
+        sequence: !input right_click
+
+      - conditions: "{{ trigger.id == 'top_hold' }}"
+        sequence: !input top_hold
+
+      - conditions: "{{ trigger.id == 'bottom_hold' }}"
+        sequence: !input bottom_hold
+
+      - conditions: "{{ trigger.id == 'left_hold' }}"
+        sequence: !input left_hold
+
+      - conditions: "{{ trigger.id == 'right_hold' }}"
+        sequence: !input right_hold
+
+      - conditions: "{{ trigger.id == 'brightness_release' }}"
+        sequence: !input brightness_release
+
+      - conditions: "{{ trigger.id == 'left_release' }}"
+        sequence: !input left_release
+
+      - conditions: "{{ trigger.id == 'right_release' }}"
+        sequence: !input right_release

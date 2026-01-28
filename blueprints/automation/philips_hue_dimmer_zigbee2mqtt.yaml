@@ -1,0 +1,231 @@
+blueprint:
+  name: Philips Hue Dimmer (929002398602) - Simple via Z2M
+  description: >
+    Simpel blueprint til Philips Hue dimmer switch (929002398602) via Zigbee2MQTT.
+    Understøtter press/hold/release for On/Off/Up/Down.
+  domain: automation
+  source_url: https://github.com/math7935/Home-Assistant-Blueprints/blueprints/automation/philips_hue_dimmer_zigbee2mqtt.yaml
+
+  input:
+    remote:
+      name: Philips Hue Dimmer (Z2M device)
+      selector:
+        device:
+          integration: mqtt
+          manufacturer: Philips
+          model: "Hue dimmer switch"
+
+    # -------------------------
+    # PRESS (klik)
+    # -------------------------
+    on_press:
+      name: "ON – Tryk"
+      default: []
+      selector: { action: {} }
+
+    off_press:
+      name: "OFF – Tryk"
+      default: []
+      selector: { action: {} }
+
+    up_press:
+      name: "UP – Tryk"
+      default: []
+      selector: { action: {} }
+
+    down_press:
+      name: "DOWN – Tryk"
+      default: []
+      selector: { action: {} }
+
+    # -------------------------
+    # HOLD
+    # -------------------------
+    on_hold:
+      name: "ON – Hold"
+      default: []
+      selector: { action: {} }
+
+    off_hold:
+      name: "OFF – Hold"
+      default: []
+      selector: { action: {} }
+
+    up_hold:
+      name: "UP – Hold"
+      default: []
+      selector: { action: {} }
+
+    down_hold:
+      name: "DOWN – Hold"
+      default: []
+      selector: { action: {} }
+
+    # -------------------------
+    # RELEASE
+    # (Z2M har både *_press_release og *_hold_release)
+    # -------------------------
+    on_release:
+      name: "ON – Slip"
+      default: []
+      selector: { action: {} }
+
+    off_release:
+      name: "OFF – Slip"
+      default: []
+      selector: { action: {} }
+
+    up_release:
+      name: "UP – Slip"
+      default: []
+      selector: { action: {} }
+
+    down_release:
+      name: "DOWN – Slip"
+      default: []
+      selector: { action: {} }
+
+mode: single
+max_exceeded: silent
+
+trigger:
+  # --- PRESS ---
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: on_press
+    id: on_press
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: off_press
+    id: off_press
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: up_press
+    id: up_press
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: down_press
+    id: down_press
+
+  # --- HOLD ---
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: on_hold
+    id: on_hold
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: off_hold
+    id: off_hold
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: up_hold
+    id: up_hold
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: down_hold
+    id: down_hold
+
+  # --- RELEASE (samler press_release + hold_release til én "release" pr knap) ---
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: on_press_release
+    id: on_release
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: on_hold_release
+    id: on_release
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: off_press_release
+    id: off_release
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: off_hold_release
+    id: off_release
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: up_press_release
+    id: up_release
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: up_hold_release
+    id: up_release
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: down_press_release
+    id: down_release
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: down_hold_release
+    id: down_release
+
+action:
+  - choose:
+      - conditions: "{{ trigger.id == 'on_press' }}"
+        sequence: !input on_press
+      - conditions: "{{ trigger.id == 'off_press' }}"
+        sequence: !input off_press
+      - conditions: "{{ trigger.id == 'up_press' }}"
+        sequence: !input up_press
+      - conditions: "{{ trigger.id == 'down_press' }}"
+        sequence: !input down_press
+      - conditions: "{{ trigger.id == 'recall_0' }}"
+
+      - conditions: "{{ trigger.id == 'on_hold' }}"
+        sequence: !input on_hold
+      - conditions: "{{ trigger.id == 'off_hold' }}"
+        sequence: !input off_hold
+      - conditions: "{{ trigger.id == 'up_hold' }}"
+        sequence: !input up_hold
+      - conditions: "{{ trigger.id == 'down_hold' }}"
+        sequence: !input down_hold
+
+      - conditions: "{{ trigger.id == 'on_release' }}"
+        sequence: !input on_release
+      - conditions: "{{ trigger.id == 'off_release' }}"
+        sequence: !input off_release
+      - conditions: "{{ trigger.id == 'up_release' }}"
+        sequence: !input up_release
+      - conditions: "{{ trigger.id == 'down_release' }}"
+        sequence: !input down_release
