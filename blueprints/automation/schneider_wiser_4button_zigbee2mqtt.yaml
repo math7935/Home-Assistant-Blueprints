@@ -4,7 +4,7 @@ blueprint:
     Simpel blueprint til Schneider Electric 550D6001 via Zigbee2MQTT.
     Kun single click + hold/release.
   domain: automation
-  #source_url: https://gist.github.com/math7935/66f1197146f32da865faac2801deca05
+  source_url: https://github.com/math7935/Home-Assistant-Blueprints/blob/main/blueprints/automation/schneider_wiser_4button_zigbee2mqtt.yaml
   
   input:
     remote:
