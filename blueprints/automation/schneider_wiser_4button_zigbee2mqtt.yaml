@@ -1,0 +1,181 @@
+blueprint:
+  name: Schneider Electric 550D6001 - Simple via Z2M
+  description: >
+    Simpel blueprint til Schneider Electric 550D6001 via Zigbee2MQTT.
+    Kun single click + hold/release.
+  domain: automation
+  #source_url: https://gist.github.com/math7935/66f1197146f32da865faac2801deca05
+  
+  input:
+    remote:
+      name: Schneider Electric 550D6001 (Z2M device)
+      selector:
+        device:
+          integration: mqtt
+          manufacturer: Schneider Electric
+          model: "LK FUGA wiser wireless battery 4 button switch"
+
+    # ---------------------------------------------------------------
+    # KLIK (layout: 2x2)
+    # ---------------------------------------------------------------
+    on_top:
+      name: "Top venstre – Klik"
+      default: []
+      selector: { action: {} }
+
+    off_top:
+      name: "Top højre – Klik"
+      default: []
+      selector: { action: {} }
+
+    on_bottom:
+      name: "Bund venstre – Klik"
+      default: []
+      selector: { action: {} }
+
+    off_bottom:
+      name: "Bund højre – Klik"
+      default: []
+      selector: { action: {} }
+
+    # ---------------------------------------------------------------
+    # HOLD / SLIP (samme 2x2 logik)
+    # ---------------------------------------------------------------
+    top_brightness_up_hold:
+      name: "Top venstre – Hold (lys op)"
+      default: []
+      selector: { action: {} }
+
+    top_brightness_down_hold:
+      name: "Top højre – Hold (lys ned)"
+      default: []
+      selector: { action: {} }
+
+    top_brightness_release:
+      name: "Top – Slip"
+      default: []
+      selector: { action: {} }
+
+    bottom_brightness_up_hold:
+      name: "Bund venstre – Hold (lys op)"
+      default: []
+      selector: { action: {} }
+
+    bottom_brightness_down_hold:
+      name: "Bund højre – Hold (lys ned)"
+      default: []
+      selector: { action: {} }
+
+    bottom_brightness_release:
+      name: "Bund – Slip"
+      default: []
+      selector: { action: {} }
+
+mode: single
+max_exceeded: silent
+
+trigger:
+  # --- CLICKS ---
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: on_top
+    id: on_top
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: off_top
+    id: off_top
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: on_bottom
+    id: on_bottom
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: off_bottom
+    id: off_bottom
+
+  # --- HOLD START ---
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: brightness_move_up_top
+    id: top_up_hold
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: brightness_move_down_top
+    id: top_down_hold
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: brightness_move_up_bottom
+    id: bottom_up_hold
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: brightness_move_down_bottom
+    id: bottom_down_hold
+
+  # --- RELEASE ---
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: brightness_stop_top
+    id: top_stop
+
+  - platform: device
+    domain: mqtt
+    device_id: !input remote
+    type: action
+    subtype: brightness_stop_bottom
+    id: bottom_stop
+
+action:
+  - choose:
+      - conditions: "{{ trigger.id == 'on_top' }}"
+        sequence: !input on_top
+
+      - conditions: "{{ trigger.id == 'off_top' }}"
+        sequence: !input off_top
+
+      - conditions: "{{ trigger.id == 'on_bottom' }}"
+        sequence: !input on_bottom
+
+      - conditions: "{{ trigger.id == 'off_bottom' }}"
+        sequence: !input off_bottom
+
+      - conditions: "{{ trigger.id == 'top_up_hold' }}"
+        sequence: !input top_brightness_up_hold
+
+      - conditions: "{{ trigger.id == 'top_down_hold' }}"
+        sequence: !input top_brightness_down_hold
+
+      - conditions: "{{ trigger.id == 'top_stop' }}"
+        sequence: !input top_brightness_release
+
+      - conditions: "{{ trigger.id == 'bottom_up_hold' }}"
+        sequence: !input bottom_brightness_up_hold
+
+      - conditions: "{{ trigger.id == 'bottom_down_hold' }}"
+        sequence: !input bottom_brightness_down_hold
+
+      - conditions: "{{ trigger.id == 'bottom_stop' }}"
+        sequence: !input bottom_brightness_release
