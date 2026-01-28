@@ -210,7 +210,6 @@ action:
         sequence: !input up_press
       - conditions: "{{ trigger.id == 'down_press' }}"
         sequence: !input down_press
-      - conditions: "{{ trigger.id == 'recall_0' }}"
 
       - conditions: "{{ trigger.id == 'on_hold' }}"
         sequence: !input on_hold
