@@ -1,0 +1,353 @@
+blueprint:
+  name: Outdoor lights with dark mode, first-activation memory and smart command suppression
+  description: >
+    Robust outdoor lighting blueprint.
+    Turns lights on to an active brightness when one of the selected binary sensors is triggered.
+    After the configured hold time, the lights return to a standby brightness or turn off,
+    depending on darkness, the optional night schedule, and whether the lights have already
+    been activated at least once during the current evening.
+
+    Darkness can be evaluated by a sun-down binary sensor, a lux sensor threshold, or a combination of both.
+    Light commands are only sent when the requested state is different from the current state.
+
+  domain: automation
+  source_url: https://github.com/math7935/Home-Assistant-Blueprints/blueprints/automation/outdoor_lightning_with_standby_level_and_night_schedule.yaml
+
+  input:
+    trigger_sensors:
+      name: Trigger sensors
+      description: Binary sensors that activate the lights
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: binary_sensor
+
+    light_entities:
+      name: Lights
+      description: Lights controlled by this blueprint
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: light
+
+    darkness_mode:
+      name: Darkness mode
+      description: Select how darkness should be determined
+      default: sun
+      selector:
+        select:
+          options:
+            - label: Sun sensor only
+              value: sun
+            - label: Lux sensor only
+              value: lux
+            - label: Sun OR lux
+              value: sun_or_lux
+            - label: Sun AND lux
+              value: sun_and_lux
+
+    sun_sensor:
+      name: Sun down sensor
+      description: Binary sensor that is on when it is dark / sun is down
+      default: binary_sensor.sun_down
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+
+    lux_sensor:
+      name: Lux sensor
+      description: Illuminance sensor used when darkness mode includes lux
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+
+    lux_threshold:
+      name: Lux threshold
+      description: Consider it dark when lux is less than or equal to this value
+      default: 20
+      selector:
+        number:
+          min: 0
+          max: 500
+          unit_of_measurement: lx
+          mode: slider
+
+    evening_memory_helper:
+      name: Evening memory helper
+      description: >
+        Input boolean used to remember whether the lights have been activated at least once
+        during the current evening. This helper is reset when daylight returns.
+      selector:
+        entity:
+          filter:
+            - domain: input_boolean
+
+    use_night_schedule:
+      name: Use night schedule
+      description: Enable this if the night schedule should control whether standby light is allowed
+      default: false
+      selector:
+        boolean: {}
+
+    night_schedule:
+      name: Night schedule
+      description: >
+        Schedule helper used when "Use night schedule" is enabled.
+        When the schedule is ON, the lights will be turned off instead of using standby brightness.
+      default: schedule.nat_sluk_udendorslys
+      selector:
+        entity:
+          filter:
+            - domain: schedule
+
+    active_brightness:
+      name: Active brightness
+      description: Brightness used when motion or activity is detected
+      default: 100
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
+
+    idle_brightness:
+      name: Standby brightness
+      description: Brightness used after the hold time expires
+      default: 20
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
+
+    brightness_tolerance:
+      name: Brightness tolerance
+      description: >
+        Allowed difference in brightness before a new command is sent.
+        Helps avoid repeated commands caused by rounding differences.
+      default: 4
+      selector:
+        number:
+          min: 0
+          max: 20
+          mode: slider
+
+    hold_time:
+      name: Active hold time
+      description: How long the lights stay at active brightness after the last trigger
+      default: "00:05:00"
+      selector:
+        duration: {}
+
+    transition_time:
+      name: Transition time
+      description: Fade time in seconds
+      default: 2
+      selector:
+        number:
+          min: 0
+          max: 30
+          unit_of_measurement: s
+          mode: slider
+
+mode: restart
+max_exceeded: silent
+
+variables:
+  darkness_mode: !input darkness_mode
+  use_night_schedule: !input use_night_schedule
+  night_schedule_entity: !input night_schedule
+  sun_sensor_entity: !input sun_sensor
+  lux_sensor_entity: !input lux_sensor
+  lux_threshold: !input lux_threshold
+  memory_helper_entity: !input evening_memory_helper
+  light_list: !input light_entities
+  active_brightness_pct: !input active_brightness
+  idle_brightness_pct: !input idle_brightness
+  brightness_tolerance: !input brightness_tolerance
+
+  target_active_brightness: "{{ (active_brightness_pct * 2.55) | round(0) }}"
+  target_idle_brightness: "{{ (idle_brightness_pct * 2.55) | round(0) }}"
+
+  dark_by_sun: "{{ is_state(sun_sensor_entity, 'on') }}"
+  lux_value: "{{ states(lux_sensor_entity) | float(none) }}"
+  dark_by_lux: "{{ lux_value is not none and lux_value <= lux_threshold }}"
+
+  is_dark: >-
+    {% if darkness_mode == 'sun' %}
+      {{ dark_by_sun }}
+    {% elif darkness_mode == 'lux' %}
+      {{ dark_by_lux }}
+    {% elif darkness_mode == 'sun_or_lux' %}
+      {{ dark_by_sun or dark_by_lux }}
+    {% elif darkness_mode == 'sun_and_lux' %}
+      {{ dark_by_sun and dark_by_lux }}
+    {% else %}
+      {{ dark_by_sun }}
+    {% endif %}
+
+  standby_allowed: >-
+    {{ not use_night_schedule or is_state(night_schedule_entity, 'off') }}
+
+  evening_activated: "{{ is_state(memory_helper_entity, 'on') }}"
+
+  lights_need_off: >-
+    {{ expand(light_list) | selectattr('state', 'eq', 'on') | list | count > 0 }}
+
+  lights_need_active: >-
+    {% set ns = namespace(need=false) %}
+    {% for l in expand(light_list) %}
+      {% set current_brightness = state_attr(l.entity_id, 'brightness') | int(-1) %}
+      {% if l.state != 'on' %}
+        {% set ns.need = true %}
+      {% elif current_brightness == -1 %}
+        {% set ns.need = true %}
+      {% elif (current_brightness - target_active_brightness) | abs > brightness_tolerance %}
+        {% set ns.need = true %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.need }}
+
+  lights_need_idle: >-
+    {% set ns = namespace(need=false) %}
+    {% for l in expand(light_list) %}
+      {% set current_brightness = state_attr(l.entity_id, 'brightness') | int(-1) %}
+      {% if l.state != 'on' %}
+        {% set ns.need = true %}
+      {% elif current_brightness == -1 %}
+        {% set ns.need = true %}
+      {% elif (current_brightness - target_idle_brightness) | abs > brightness_tolerance %}
+        {% set ns.need = true %}
+      {% endif %}
+    {% endfor %}
+    {{ ns.need }}
+
+trigger:
+  - platform: state
+    entity_id: !input trigger_sensors
+    to: "on"
+    id: motion_on
+
+  - platform: state
+    entity_id: !input sun_sensor
+    id: sun_changed
+
+  - platform: state
+    entity_id: !input lux_sensor
+    id: lux_changed
+
+  - platform: state
+    entity_id: !input night_schedule
+    id: night_schedule_changed
+
+  - platform: homeassistant
+    event: start
+    id: ha_start
+
+condition: []
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: motion_on
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ is_dark }}"
+            then:
+              - service: input_boolean.turn_on
+                target:
+                  entity_id: !input evening_memory_helper
+
+              - if:
+                  - condition: template
+                    value_template: "{{ lights_need_active }}"
+                then:
+                  - service: light.turn_on
+                    target:
+                      entity_id: !input light_entities
+                    data:
+                      brightness_pct: !input active_brightness
+                      transition: !input transition_time
+
+              - delay: !input hold_time
+
+              - if:
+                  - condition: template
+                    value_template: "{{ is_dark }}"
+                  - condition: state
+                    entity_id: !input evening_memory_helper
+                    state: "on"
+                  - condition: template
+                    value_template: "{{ standby_allowed }}"
+                then:
+                  - if:
+                      - condition: template
+                        value_template: "{{ lights_need_idle }}"
+                    then:
+                      - service: light.turn_on
+                        target:
+                          entity_id: !input light_entities
+                        data:
+                          brightness_pct: !input idle_brightness
+                          transition: !input transition_time
+                else:
+                  - if:
+                      - condition: template
+                        value_template: "{{ lights_need_off }}"
+                    then:
+                      - service: light.turn_off
+                        target:
+                          entity_id: !input light_entities
+                        data:
+                          transition: !input transition_time
+
+    default:
+      - if:
+          - condition: trigger
+            id:
+              - sun_changed
+              - lux_changed
+          - condition: template
+            value_template: "{{ not is_dark }}"
+        then:
+          - service: input_boolean.turn_off
+            target:
+              entity_id: !input evening_memory_helper
+
+      - if:
+          - condition: template
+            value_template: "{{ is_dark }}"
+          - condition: state
+            entity_id: !input evening_memory_helper
+            state: "on"
+          - condition: template
+            value_template: "{{ standby_allowed }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ lights_need_idle }}"
+            then:
+              - service: light.turn_on
+                target:
+                  entity_id: !input light_entities
+                data:
+                  brightness_pct: !input idle_brightness
+                  transition: !input transition_time
+        else:
+          - if:
+              - condition: template
+                value_template: "{{ lights_need_off }}"
+            then:
+              - service: light.turn_off
+                target:
+                  entity_id: !input light_entities
+                data:
+                  transition: !input transition_time
