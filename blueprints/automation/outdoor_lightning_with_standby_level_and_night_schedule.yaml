@@ -14,6 +14,7 @@ blueprint:
   source_url: https://github.com/math7935/Home-Assistant-Blueprints/blob/main/blueprints/automation/outdoor_lightning_with_standby_level_and_night_schedule.yaml
 
   input:
+    # Sensors that trigger the light (motion, door, etc.)
     trigger_sensors:
       name: Trigger sensors
       selector:
@@ -22,6 +23,7 @@ blueprint:
           filter:
             - domain: binary_sensor
 
+    # Lights to control
     light_entities:
       name: Lights
       selector:
@@ -30,6 +32,7 @@ blueprint:
           filter:
             - domain: light
 
+    # Sensor that defines "dark"
     sun_sensor:
       name: Sun sensor
       default: binary_sensor.sun_down
@@ -38,6 +41,7 @@ blueprint:
           filter:
             - domain: binary_sensor
 
+    # Optional night schedule
     use_night_schedule:
       name: Use night schedule
       default: false
@@ -52,6 +56,7 @@ blueprint:
           filter:
             - domain: schedule
 
+    # Brightness when triggered
     active_brightness:
       name: Active brightness
       default: 100
@@ -61,6 +66,7 @@ blueprint:
           max: 100
           unit_of_measurement: "%"
 
+    # Brightness after timer expires
     idle_brightness:
       name: Idle brightness
       default: 20
@@ -70,6 +76,7 @@ blueprint:
           max: 100
           unit_of_measurement: "%"
 
+    # Prevents repeated commands due to small brightness differences
     brightness_tolerance:
       name: Brightness tolerance
       default: 4
@@ -78,12 +85,14 @@ blueprint:
           min: 0
           max: 20
 
+    # How long lights stay at active brightness
     hold_time:
       name: Hold time
       default: "00:05:00"
       selector:
         duration:
 
+    # Fade time
     transition_time:
       name: Transition
       default: 2
@@ -92,10 +101,12 @@ blueprint:
           min: 0
           max: 30
 
+# Restart mode ensures new triggers reset the timer cleanly
 mode: restart
 max_exceeded: silent
 
 variables:
+  # Inputs
   use_night_schedule: !input use_night_schedule
   night_schedule_entity: !input night_schedule
   sun_sensor_entity: !input sun_sensor
@@ -105,14 +116,18 @@ variables:
   idle_pct: !input idle_brightness
   tolerance: !input brightness_tolerance
 
+  # Convert % to HA brightness scale (0–255)
   target_active: "{{ (active_pct * 2.55) | round(0) }}"
   target_idle: "{{ (idle_pct * 2.55) | round(0) }}"
 
+  # Determine if it's dark
   is_dark: "{{ is_state(sun_sensor_entity, 'on') }}"
 
+  # Night schedule logic (optional)
   standby_allowed: >
     {{ not use_night_schedule or is_state(night_schedule_entity, 'off') }}
 
+  # Check if lights need to be set to active brightness
   lights_need_active: >-
     {% set ns = namespace(need=false) %}
     {% for l in expand(light_list) %}
@@ -123,6 +138,7 @@ variables:
     {% endfor %}
     {{ ns.need }}
 
+  # Check if lights need to be set to idle brightness
   lights_need_idle: >-
     {% set ns = namespace(need=false) %}
     {% for l in expand(light_list) %}
@@ -133,23 +149,28 @@ variables:
     {% endfor %}
     {{ ns.need }}
 
+  # Check if any lights are still on
   lights_need_off: >
     {{ expand(light_list) | selectattr('state','eq','on') | list | count > 0 }}
 
 trigger:
+  # Motion or activity detected
   - platform: state
     entity_id: !input trigger_sensors
     to: "on"
     id: motion
 
+  # Sun state changes
   - platform: state
     entity_id: !input sun_sensor
     id: sun
 
+  # Night schedule changes
   - platform: state
     entity_id: !input night_schedule
     id: schedule
 
+  # When Home Assistant restarts
   - platform: homeassistant
     event: start
     id: startup
@@ -158,14 +179,17 @@ condition: []
 
 action:
   - choose:
+      # ===== MOTION TRIGGER =====
       - conditions:
           - condition: trigger
             id: motion
         sequence:
+          # Only act if it's dark
           - if:
               - condition: template
                 value_template: "{{ is_dark }}"
             then:
+              # Set active brightness if needed
               - if:
                   - condition: template
                     value_template: "{{ lights_need_active }}"
@@ -177,12 +201,15 @@ action:
                       brightness_pct: !input active_brightness
                       transition: !input transition_time
 
+              # Wait before going to idle
               - delay: !input hold_time
 
+              # Decide next state
               - if:
                   - condition: template
                     value_template: "{{ is_dark and standby_allowed }}"
                 then:
+                  # Set idle brightness if needed
                   - if:
                       - condition: template
                         value_template: "{{ lights_need_idle }}"
@@ -194,6 +221,7 @@ action:
                           brightness_pct: !input idle_brightness
                           transition: !input transition_time
                 else:
+                  # Turn off if needed
                   - if:
                       - condition: template
                         value_template: "{{ lights_need_off }}"
@@ -204,11 +232,13 @@ action:
                         data:
                           transition: !input transition_time
 
+    # ===== SYNC STATE (sun, schedule, restart) =====
     default:
       - if:
           - condition: template
             value_template: "{{ is_dark and standby_allowed }}"
         then:
+          # Ensure idle brightness
           - if:
               - condition: template
                 value_template: "{{ lights_need_idle }}"
@@ -220,6 +250,7 @@ action:
                   brightness_pct: !input idle_brightness
                   transition: !input transition_time
         else:
+          # Ensure lights are off
           - if:
               - condition: template
                 value_template: "{{ lights_need_off }}"
