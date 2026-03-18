@@ -11,7 +11,7 @@ blueprint:
     Light commands are only sent when the requested state is different from the current state.
 
   domain: automation
-  source_url: https://github.com/math7935/Home-Assistant-Blueprints/blueprints/automation/outdoor_lightning_with_standby_level_and_night_schedule.yaml
+  source_url: https://github.com/math7935/Home-Assistant-Blueprints/blob/main/blueprints/automation/outdoor_lightning_with_standby_level_and_night_schedule.yaml
 
   input:
     trigger_sensors:
