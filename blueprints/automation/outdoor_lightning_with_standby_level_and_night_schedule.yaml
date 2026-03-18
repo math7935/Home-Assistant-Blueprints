@@ -30,21 +30,6 @@ blueprint:
           filter:
             - domain: light
 
-    darkness_mode:
-      name: Darkness mode
-      default: sun
-      selector:
-        select:
-          options:
-            - label: Sun only
-              value: sun
-            - label: Lux only
-              value: lux
-            - label: Sun OR lux
-              value: sun_or_lux
-            - label: Sun AND lux
-              value: sun_and_lux
-
     sun_sensor:
       name: Sun sensor
       default: binary_sensor.sun_down
@@ -52,22 +37,6 @@ blueprint:
         entity:
           filter:
             - domain: binary_sensor
-
-    lux_sensor:
-      name: Lux sensor
-      selector:
-        entity:
-          filter:
-            - domain: sensor
-
-    lux_threshold:
-      name: Lux threshold
-      default: 20
-      selector:
-        number:
-          min: 0
-          max: 500
-          unit_of_measurement: lx
 
     use_night_schedule:
       name: Use night schedule
@@ -127,12 +96,9 @@ mode: restart
 max_exceeded: silent
 
 variables:
-  darkness_mode: !input darkness_mode
   use_night_schedule: !input use_night_schedule
   night_schedule_entity: !input night_schedule
   sun_sensor_entity: !input sun_sensor
-  lux_sensor_entity: !input lux_sensor
-  lux_threshold: !input lux_threshold
   light_list: !input light_entities
 
   active_pct: !input active_brightness
@@ -142,20 +108,7 @@ variables:
   target_active: "{{ (active_pct * 2.55) | round(0) }}"
   target_idle: "{{ (idle_pct * 2.55) | round(0) }}"
 
-  dark_by_sun: "{{ is_state(sun_sensor_entity, 'on') }}"
-  lux_value: "{{ states(lux_sensor_entity) | float(none) }}"
-  dark_by_lux: "{{ lux_value is not none and lux_value <= lux_threshold }}"
-
-  is_dark: >-
-    {% if darkness_mode == 'sun' %}
-      {{ dark_by_sun }}
-    {% elif darkness_mode == 'lux' %}
-      {{ dark_by_lux }}
-    {% elif darkness_mode == 'sun_or_lux' %}
-      {{ dark_by_sun or dark_by_lux }}
-    {% else %}
-      {{ dark_by_sun and dark_by_lux }}
-    {% endif %}
+  is_dark: "{{ is_state(sun_sensor_entity, 'on') }}"
 
   standby_allowed: >
     {{ not use_night_schedule or is_state(night_schedule_entity, 'off') }}
@@ -187,27 +140,27 @@ trigger:
   - platform: state
     entity_id: !input trigger_sensors
     to: "on"
+    id: motion
 
   - platform: state
     entity_id: !input sun_sensor
-
-  - platform: state
-    entity_id: !input lux_sensor
+    id: sun
 
   - platform: state
     entity_id: !input night_schedule
+    id: schedule
 
   - platform: homeassistant
     event: start
+    id: startup
 
 condition: []
 
 action:
   - choose:
-      # Motion trigger
       - conditions:
-          - condition: template
-            value_template: "{{ trigger.platform == 'state' and trigger.to_state.state == 'on' }}"
+          - condition: trigger
+            id: motion
         sequence:
           - if:
               - condition: template
