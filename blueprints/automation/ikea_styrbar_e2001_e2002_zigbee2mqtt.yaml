@@ -89,14 +89,14 @@ trigger:
     domain: mqtt
     device_id: !input remote
     type: action
-    subtype: on
+    subtype: 'on'
     id: top_click
 
   - platform: device
     domain: mqtt
     device_id: !input remote
     type: action
-    subtype: off
+    subtype: 'off'
     id: bottom_click
 
   - platform: device
